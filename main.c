@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
-#include <time.h>
 
 int Min(int a , int b){
     return (a<b) ? a : b;
@@ -17,33 +16,41 @@ int best_index = 0;
 Point best[5000];
 #include "snake.c"
 
-void InserisciMaxBinarySearch(int val, int row, int col);
+void InserisciMax(int val, int row, int col);
 
 int main(){
-    char choice;
-    printf("Choose size (0-6), foreseeDepth, mosseConsecutive:  ");
-    scanf("%c %d %d", &choice, &FORESEE_DEPTH, &NUM_MOSSE_CONSECUTIVE);
+    char choice, printMat;
+    printf("Input -1 mosseConsecutive per fare snake in sequenza.\n");
+    printf("Choose size (0-6), foreseeDepth, mosseConsecutive, printMatrix:  ");
+    scanf("%c", &choice);
+    //printf("Choose foresee depth:  ");
+    scanf("%d", &FORESEE_DEPTH);
+    //printf("Choose mosse consecutive:  ");
+    scanf("%d", &NUM_MOSSE_CONSECUTIVE);
+    if(NUM_MOSSE_CONSECUTIVE < 1) NUM_MOSSE_CONSECUTIVE = 1005;
+    //printf("Print matrix?  ");
+    scanf(" %c", &printMat);
 
     char inputName[] = "./inputs/0*_input.txt";
     inputName[10] = choice;
     FILE *file;
     file = fopen(inputName, "r");
     
+    printf("File opened.\n");
+
     fscanf(file, "%d", &Col);
     fscanf(file, "%d", &Row);
     fscanf(file, "%d", &numSnake);
     
-    int maxLenSnake=-1;
     for (int i = 0; i < numSnake; i++){
         int length;
         fscanf(file, "%d", &length);
         InitSnake(&snakes[i], i, length);
-        if(length>maxLenSnake) maxLenSnake = length;
         best[i].row = -1;
         best[i].col = -1;
     }
-    
-    //wormholes = (Point*)malloc(0);
+
+    wormholes = (Point*)malloc(0);
     wormholeCounter = 0;
     for (int i = 0; i < Row; i++){
         for (int j = 0; j < Col; j++){
@@ -60,26 +67,24 @@ int main(){
                 wormholes[wormholeCounter].row = i;
                 wormholes[wormholeCounter].col = j;
             }
-            else
-                InserisciMaxBinarySearch(Value, i, j);
+            InserisciMax(Value, i, j);
         }
     }
     fclose(file);
-    printf("Input File opened and processed.\n");
 
+    // Debug Output for the best[] array
+    // for (int i = 0; i< numSnake; i++){
+    //     int c,r;
+    //     r = best[i].row;
+    //     c = best[i].col;
+    //     printf("MaxIndex: %d ; Coord: %d %d ; Val: %d\n", i, r, c, matrice[r][c].value);
+    // }
+    
     for (int i = 0; i< numSnake; i++){
         SetStartSnakePunto(&snakes[i], best[i]);
     }
-    if(FORESEE_DEPTH < 0) 
-        FORESEE_DEPTH=maxLenSnake;
-    else
-        FORESEE_DEPTH = Min(FORESEE_DEPTH, maxLenSnake);
-
-    if(NUM_MOSSE_CONSECUTIVE < 0) 
-        NUM_MOSSE_CONSECUTIVE=maxLenSnake;
-    else
-        NUM_MOSSE_CONSECUTIVE = Min(NUM_MOSSE_CONSECUTIVE, maxLenSnake);
     
+    int totalScore=0;
     bool isAnySnakeLeft = true;
     while(isAnySnakeLeft){
         Snake* snake;
@@ -87,78 +92,77 @@ int main(){
         for(int i=0; i<numSnake; i++){
             snake = &snakes[i];
             for(int k=0; k<NUM_MOSSE_CONSECUTIVE; k++)
-            if(snake->numMosse < snake->maxLength-1 && snake->isAlive){
+            if(snake->numMosse < snake->maxLength-1){
                 isAnySnakeLeft = true;
                 int remainingLength = snake->maxLength-1 - snake->numMosse;
                 char bestMove = BestMove(snake, remainingLength>0);
-                if(bestMove == 'I' || bestMove == 'W'){
-                        srand(time(NULL));
-                        Point randomSpot;   
-                        do{
-                            randomSpot.row = rand()%Row;
-                            randomSpot.col = rand()%Col;
-                        }while(GetCella(randomSpot)->isOccupied);
-                        RelocateSnake(snake, randomSpot);
-                }
+                if(bestMove == 'I' || bestMove == 'W')
+                    DebugPrintMossaErrata(snake, bestMove);
                 else{
+                    //printf("Snake %d move from %d %d ", snake->index, snake->curr.row, snake->curr.col);   // DEBUG
                     Move(snake, bestMove);
+                    //printf("to %d %d \n", snake->curr.row, snake->curr.col);                                // DEBUG
                 }
             }
             else break;
         }
     }
 
-    long totalScore=0;
     for(int i=0; i<numSnake; i++){
-        if(snakes[i].totalScore > 0)
-            totalScore += snakes[i].totalScore;
-        else{ 
-            snakes[i].isAlive = false;     // kills all snakes with negative score (will not put on output)
-        }
+        totalScore += snakes[i].totalScore;
     }
+    printf("Score of this run: %d\n", totalScore);
+    if(choice > '1' || (printMat != 'y' && printMat != 'Y'))
+        return 0;       // do not print matrix if too big
 
-    printf("Score of this run: %ld\n", totalScore);
+    printf("Printing Matrix in finish state: \n");
+   
+    for (int i = 0; i < Row; i++){
+        for (int j = 0; j < Col; j++){
+            if(matrice[i][j].isOccupied)
+                printf("%2d%c", matrice[i][j].indexOfSnake, 'X');
+            else if(matrice[i][j].value == WORMHOLE_VALUE)   
+                printf("%3c", '*');
+            else
+                printf("%3d", matrice[i][j].value);
 
-    //free(wormholes);
-    return 0; 
+            printf(" ");
+        }
+        printf("\n");
+    }
 }
 
-void InserisciMaxBinarySearch(int val, int row, int col){
+void InserisciMax(int val, int row, int col){
     Point temp_1;
     Point temp_2;
-    int left=0;
-    int right=numSnake-1;
-    while(left<right){
-        int mid = (left+right)/2;
-        int valMid = ValoreCellaPunto(best[mid]);
-        if(valMid >= val){
-            left=mid+1;
-        }
-        else{
-            right=mid;
-        }
-    }
-    if(left > right) printf("Wow. Unexpected left>right.");
-    //left == right
-    if(ValoreCellaPunto(best[left]) > val)
-        return;
-    else{
-        temp_1 = best[left];
-        best[left].row = row;
-        best[left].col = col;
-    }
-    // start propagating from the position found (==left==right)
     bool usato_1 = true;
-    for(int i=left+1; i<numSnake; i++){
-        if (usato_1){
-            temp_2 = best[i];
-            best[i] = temp_1;
-            usato_1 = false;
+    bool found = false;
+    for(int i=0; i<numSnake; i++){
+        int vBest = ValoreCellaImmediato(best[i].row, best[i].col, (best[i].row < 0 || best[i].col < 0));
+        if(!found){
+            if (val >= vBest){
+                found = true;
+                temp_1.row = best[i].row;
+                temp_1.col = best[i].col;
+                best[i].row = row;
+                best[i].col = col;
+            }
         } else {
-            temp_1 = best[i];
-            best[i] = temp_2;
-            usato_1 = true;
+            if (usato_1){
+                temp_2.row = best[i].row;
+                temp_2.col = best[i].col;
+                best[i].row = temp_1.row;
+                best[i].col = temp_1.col;
+                usato_1 = false;
+            } else {
+                temp_1.row = best[i].row;
+                temp_1.col = best[i].col;
+                best[i].row = temp_2.row;
+                best[i].col = temp_2.col;
+                usato_1 = true;
+            }
         }
-        if(ValoreCellaPunto(best[i]) < WORMHOLE_VALUE) break;
+        if(vBest < -10000)
+            break;
     }
 }
