@@ -5,6 +5,7 @@
 typedef struct{
     int col;
     int row;
+    int threadID;
 } Point;
 char mossePossibili[] = "RLUD";
 char mossaOpposta[] = "LRDU";
@@ -67,12 +68,14 @@ int GetIndexOfMossa(char mossa){
     if(mossa == 'L') return 1;
     if(mossa == 'U') return 2;
     if(mossa == 'D') return 3;
+    else return -1;
 }
 int GetIndexOfMossaInversa(char mossa){
     if(mossa == 'L') return 0;
     if(mossa == 'R') return 1;
     if(mossa == 'D') return 2;
     if(mossa == 'U') return 3;
+    else return -1;
 }
 
 typedef struct{
@@ -108,29 +111,24 @@ void InitCella(Cella* cella, int value, int row, int col){
         //printf("Detected Wormhole: %d %d\n", wormholes[wormholeCounter-1].row, wormholes[wormholeCounter-1].col);
     }
 }
-Cella* GetCellaMossa(Point from, char mossa){
+Cella* GetCellaMossa(Point from, char mossa, Cella matriceStart[Row+1][Col+1]){
     ApplicaMossa(&from, mossa);
-    return &matrice[from.row][from.col];
+    return &matriceStart[from.row][from.col];
 }
-Cella* GetCella(Point p){
-    return &matrice[p.row][p.col];
+Cella* GetCella(Point p, Cella matriceStart[Row+1][Col+1]){
+    return &matriceStart[p.row][p.col];
 }
-// bool CanEnterWormholeFrom(Cella wormhole, Point p){
-//     char mossa = FindMossa(&p, &wormhole.coords);
-//     int i = GetIndexOfMossa(mossa);
-//     return wormhole.isSideOccupied[i];
-// }
-Point GetBestWormholeExit(Cella wormhole){
+Point GetBestWormholeExit(Point wormhole, Cella matriceStart[Row+1][Col+1]){
     Cella bestExit;
     InitCella(&bestExit, WORMHOLE_VALUE-10, -1, -1);
     for(int i=0; i<wormholeCounter; i++){
-        if(!IsPointEqual(&wormhole.coords, &wormholes[i]))
+        if(!IsPointEqual(&wormhole, &wormholes[i]))
             for(int k=0; k<4; k++){
                 char m = mossePossibili[k];
-                Cella exit = *GetCellaMossa(wormholes[i], m);
+                Cella exit = *GetCellaMossa(wormholes[i], m, matriceStart);
                 if(exit.value > bestExit.value && !exit.isOccupied) 
                     bestExit = exit;
-            }
+        }
     }
 
     if(bestExit.value > WORMHOLE_VALUE)
@@ -143,23 +141,22 @@ Point GetBestWormholeExit(Cella wormhole){
 
 }
 
-
-int ValoreCellaImmediato(int row, int col, bool t){
+int ValoreCellaImmediato(int row, int col, bool t, Cella matriceStart[Row+1][Col+1]){
     if(t)
         return -10002;
     else
-        return matrice[row][col].value;
+        return matriceStart[row][col].value;
 }
-int ValoreCella(int row, int col){ 
+int ValoreCella(int row, int col, Cella matriceStart[Row+1][Col+1]){ 
     Point p;
     CorreggiIndex(&p, col, row);
-    return matrice[p.row][p.col].value;
+    return matriceStart[p.row][p.col].value;
 }
-int ValoreCellaMossa(Point p, char mossa){
+int ValoreCellaMossa(Point p, char mossa, Cella matriceStart[Row+1][Col+1]){
     ApplicaMossa(&p, mossa);
-    return ValoreCella(p.row, p.col);
+    return ValoreCella(p.row, p.col, matriceStart);
 }
-int ValoreCellaPunto(Point p){
-    return matrice[p.row][p.col].value;
+int ValoreCellaPunto(Point p, Cella matriceStart[Row+1][Col+1]){
+    return matriceStart[p.row][p.col].value;
 }
 
