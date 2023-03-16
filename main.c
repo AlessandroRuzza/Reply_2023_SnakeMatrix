@@ -18,18 +18,12 @@ Point best[5000];
 
 void InserisciMax(int val, int row, int col);
 
-int main(){
-    char choice, printMat;
-    printf("Input -1 mosseConsecutive per fare snake in sequenza.\n");
-    printf("Choose size (0-6), foreseeDepth, mosseConsecutive, printMatrix:  ");
-    scanf("%c", &choice);
-    //printf("Choose foresee depth:  ");
-    scanf("%d", &FORESEE_DEPTH);
-    //printf("Choose mosse consecutive:  ");
-    scanf("%d", &NUM_MOSSE_CONSECUTIVE);
+int main(int argc, char* argv[]){
+    char choice = argv[1][0];
+    FORESEE_DEPTH = atoi(argv[2]);
+    NUM_MOSSE_CONSECUTIVE = atoi(argv[3]);
     if(NUM_MOSSE_CONSECUTIVE < 1) NUM_MOSSE_CONSECUTIVE = 1005;
-    //printf("Print matrix?  ");
-    scanf(" %c", &printMat);
+    char printMat = argv[4][0];
 
     char inputName[] = "./inputs/0*_input.txt";
     inputName[10] = choice;
@@ -96,8 +90,10 @@ int main(){
                 isAnySnakeLeft = true;
                 int remainingLength = snake->maxLength-1 - snake->numMosse;
                 char bestMove = BestMove(snake, remainingLength>0);
-                if(bestMove == 'I' || bestMove == 'W')
+                if(bestMove == 'I' || bestMove == 'W'){
                     DebugPrintMossaErrata(snake, bestMove);
+                    return -1;
+                }
                 else{
                     //printf("Snake %d move from %d %d ", snake->index, snake->curr.row, snake->curr.col);   // DEBUG
                     Move(snake, bestMove);
@@ -113,14 +109,14 @@ int main(){
     }
     printf("Score of this run: %d\n", totalScore);
     if(choice > '1' || (printMat != 'y' && printMat != 'Y'))
-        return 0;       // do not print matrix if too big
+        return totalScore;       // do not print matrix if too big
 
     printf("Printing Matrix in finish state: \n");
    
     for (int i = 0; i < Row; i++){
         for (int j = 0; j < Col; j++){
             if(matrice[i][j].isOccupied)
-                printf("%2d%c", matrice[i][j].indexOfSnake, 'X');
+                printf("%c%2d", 'X', matrice[i][j].indexOfSnake);
             else if(matrice[i][j].value == WORMHOLE_VALUE)   
                 printf("%3c", '*');
             else
@@ -130,6 +126,7 @@ int main(){
         }
         printf("\n");
     }
+    return totalScore;
 }
 
 void InserisciMax(int val, int row, int col){
