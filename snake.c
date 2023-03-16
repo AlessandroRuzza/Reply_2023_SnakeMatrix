@@ -13,8 +13,6 @@ typedef struct{
 } Snake;
 
 Snake snakes[5000];
-char mossePossibili[] = "RLUD";
-char mossaOpposta[] = "LRDU";
 int FORESEE_DEPTH=1;
 int NUM_MOSSE_CONSECUTIVE = 1;
 
@@ -38,52 +36,37 @@ void InitSnake(Snake* snake, int index, int maxLength){
 void SetStartSnakePunto(Snake* snake, Point p){
     SetStartSnake(snake, p.col, p.row);
 }
-
-void ApplicaMossa(Point* p, char mossa){
-    switch(mossa){
-            case 'U':
-                p->row++;
-                break;
-            case 'D':
-                p->row--;
-                break;
-            case 'R':
-                p->col++;
-                break;
-            case 'L':
-                p->col--;
-                break;
-            default:
-                fprintf(stderr,"Mossa Errata.");
-        }     
-    FixIndex(p);
+void DebugPrintWormholeTravel(Snake* snake, Point exit){
+    fprintf(stderr, "Snake %d e' entrato nel wormhole %d %d ed e' uscito nel punto %d %d.\n", 
+                snake->index, snake->curr.row, snake->curr.col, exit.row, exit.col);
 }
-int ValoreCellaMossa(Point p, char mossa){
-    ApplicaMossa(&p, mossa);
-    return ValoreCella(p.row, p.col);
-}
-// bool isValidMove(Point p, char mossa){               Obsoleto, sostituito da ForeseePath
-//     ApplicaMossa(&p, mossa);
-//     return !matrice[p.row][p.col].isOccupied;
-// }
 void Move(Snake* snake, char mossa){
     int i = snake->numMosse;
     if(i < snake->maxLength){
         snake->numMosse++;
         snake->mosse[i] = mossa;
         ApplicaMossa(&snake->curr, mossa);
-        snake->totalScore += matrice[snake->curr.row][snake->curr.col].value;
-        matrice[snake->curr.row][snake->curr.col].isOccupied = true;
-        matrice[snake->curr.row][snake->curr.col].indexOfSnake = snake->index;
+        Cella* nextCella = &matrice[snake->curr.row][snake->curr.col];
+        if(nextCella->isWormhole){
+            Point exit = GetBestWormholeExit(*nextCella);
+            //DebugPrintWormholeTravel(snake, exit);
+            snake->curr.row = exit.row;
+            snake->curr.col = exit.col;
+            snake->maxLength--;
+            // nextCella->isSideOccupied[GetIndexOfMossaInversa(mossa)] = true;
+            nextCella = GetCella(exit);
+        }
+        nextCella->isOccupied = true;
+        nextCella->indexOfSnake = snake->index;
+        snake->totalScore += nextCella->value;
     }
     else{
         fprintf(stderr,"Superato limite lunghezza di snake %d", snake->index);
     }
 }
 bool isDeadEnd(Point p){
-    char mossePossibili[] = "RLUD";
     for(int i=0; i<4; i++){
-        char m = mossePossibili[i]; 
+        char m = mossePossibili[i];
         Point previewMossa = p;
         ApplicaMossa(&previewMossa, m);  
         if(matrice[previewMossa.row][previewMossa.col].isOccupied == false)
@@ -93,28 +76,46 @@ bool isDeadEnd(Point p){
     return true;
 }
 bool ForeseePath(Point p, char mossa, int depth){
-    ApplicaMossa(&p, mossa); 
-    if(matrice[p.row][p.col].isOccupied) return false;                // caso base 1
-    if(depth==0) return !matrice[p.row][p.col].isOccupied;            // caso base 2
+    Cella cella = *GetCellaMossa(p, mossa);
+    if(depth==0) return !cella.isOccupied;                                      // caso base 1
+    if(cella.isOccupied) return false;                                          // caso base 2 
+    // if(cella.isWormhole && !CanEnterWormholeFrom(cella, p)) return false;       // caso base 3 (wormhole)
+    
+    Point previewMossa;
+    if(cella.isWormhole){
+        previewMossa = GetBestWormholeExit(cella);
+        if(previewMossa.row == -1) return false;                                // caso base 4 (no valid exit from wormhole)
+    }
+    else previewMossa = cella.coords;
 
     bool result=false;
     for(int i=0; i<4 && !result; i++){
-        Point previewMossa = p;
         char m = mossePossibili[i]; 
-        if(mossaOpposta[i] != mossa) {
+        if(mossaOpposta[i] != mossa){
             result = result || ForeseePath(previewMossa, m, depth-1);
         }
     }
     return result;
 }
-char BestMove(Snake* snake){
+char BestMove(Snake* snake, bool considerWormholes){
     Point p = snake->curr;
     int bestVal=WORMHOLE_VALUE - 100;
     char move=' ';
     for(int i=0; i<4; i++){
         char m = mossePossibili[i]; 
-        int val = ValoreCellaMossa(p, m);
-        bool existPath = ForeseePath(p, m, FORESEE_DEPTH);
+        Cella nextCella = *GetCellaMossa(p, m);
+        int val;
+        Point wormholeExit;
+        if(nextCella.isWormhole && considerWormholes){          
+            wormholeExit = GetBestWormholeExit(nextCella);
+            if(wormholeExit.row == -1) 
+                val = WORMHOLE_VALUE-100;
+            else
+                val = ValoreCellaPunto(wormholeExit);
+        }
+        else val = nextCella.value;     // if on wormhole and not considering wormholes, val = WORMHOLE_VALUE
+        int remainingLength = snake->maxLength-1 - snake->numMosse;
+        bool existPath = ForeseePath(p, m, Min(FORESEE_DEPTH, remainingLength-1));
         if(val>bestVal && existPath){
             bestVal=val;
             move=m;
