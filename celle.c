@@ -124,12 +124,13 @@ Point GetBestWormholeExit(Cella wormhole){
     Cella bestExit;
     InitCella(&bestExit, WORMHOLE_VALUE-10, -1, -1);
     for(int i=0; i<wormholeCounter; i++){
-        for(int k=0; k<4; k++){
-            char m = mossePossibili[k];
-            Cella exit = *GetCellaMossa(wormholes[i], m);
-            if(exit.value > bestExit.value && !exit.isOccupied) 
-                bestExit = exit;
-        }
+        if(!IsPointEqual(&wormhole.coords, &wormholes[i]))
+            for(int k=0; k<4; k++){
+                char m = mossePossibili[k];
+                Cella exit = *GetCellaMossa(wormholes[i], m);
+                if(exit.value > bestExit.value && !exit.isOccupied) 
+                    bestExit = exit;
+            }
     }
 
     if(bestExit.value > WORMHOLE_VALUE)

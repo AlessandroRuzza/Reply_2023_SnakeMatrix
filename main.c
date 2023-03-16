@@ -18,13 +18,14 @@ Point best[5000];
 
 void InserisciMax(int val, int row, int col);
 
-int main(int argc, char* argv[]){
-    char choice = argv[1][0];
-    FORESEE_DEPTH = atoi(argv[2]);
-    NUM_MOSSE_CONSECUTIVE = atoi(argv[3]);
-    if(NUM_MOSSE_CONSECUTIVE < 1) NUM_MOSSE_CONSECUTIVE = 1005;
-    char printMat = argv[4][0];
-
+#include "test.c"
+int main(){
+    char choice;
+    int MAX_FORESEE_DEPTH;
+    int MAX_MOSSE_CONSECUTIVE;
+    printf("Choose size (0-6), MAX_FORESEE_DEPTH, MAX_MOSSE_CONSECUTIVE:  ");
+    scanf("%c %d %d", &choice, &MAX_FORESEE_DEPTH, &MAX_MOSSE_CONSECUTIVE);
+    
     char inputName[] = "./inputs/0*_input.txt";
     inputName[10] = choice;
     FILE *file;
@@ -77,56 +78,29 @@ int main(int argc, char* argv[]){
     for (int i = 0; i< numSnake; i++){
         SetStartSnakePunto(&snakes[i], best[i]);
     }
+
+    BackupStartValues();
+    long long bestScore=WORMHOLE_VALUE - 100;
+    int bestForesee=-1;
+    int bestMosse=-1;
     
-    int totalScore=0;
-    bool isAnySnakeLeft = true;
-    while(isAnySnakeLeft){
-        Snake* snake;
-        isAnySnakeLeft = false;
-        for(int i=0; i<numSnake; i++){
-            snake = &snakes[i];
-            for(int k=0; k<NUM_MOSSE_CONSECUTIVE; k++)
-            if(snake->numMosse < snake->maxLength-1){
-                isAnySnakeLeft = true;
-                int remainingLength = snake->maxLength-1 - snake->numMosse;
-                char bestMove = BestMove(snake, remainingLength>0);
-                if(bestMove == 'I' || bestMove == 'W'){
-                    DebugPrintMossaErrata(snake, bestMove);
-                    return -1;
-                }
-                else{
-                    //printf("Snake %d move from %d %d ", snake->index, snake->curr.row, snake->curr.col);   // DEBUG
-                    Move(snake, bestMove);
-                    //printf("to %d %d \n", snake->curr.row, snake->curr.col);                                // DEBUG
-                }
+    
+    bool doDebug = false;
+    
+    for(int f=0; f<=MAX_FORESEE_DEPTH; f++){
+        for(int m=0; m<=MAX_MOSSE_CONSECUTIVE; m++){
+            long score = TestCase(f, m, doDebug);
+            if(score > bestScore){
+                bestScore = score;
+                bestForesee = f;
+                bestMosse = m;
             }
-            else break;
         }
     }
+    
 
-    for(int i=0; i<numSnake; i++){
-        totalScore += snakes[i].totalScore;
-    }
-    printf("Score of this run: %d\n", totalScore);
-    if(choice > '1' || (printMat != 'y' && printMat != 'Y'))
-        return totalScore;       // do not print matrix if too big
-
-    printf("Printing Matrix in finish state: \n");
-   
-    for (int i = 0; i < Row; i++){
-        for (int j = 0; j < Col; j++){
-            if(matrice[i][j].isOccupied)
-                printf("%c%2d", 'X', matrice[i][j].indexOfSnake);
-            else if(matrice[i][j].value == WORMHOLE_VALUE)   
-                printf("%3c", '*');
-            else
-                printf("%3d", matrice[i][j].value);
-
-            printf(" ");
-        }
-        printf("\n");
-    }
-    return totalScore;
+    printf("Max Score reached: %d with params: F=%d M=%d", bestScore, bestForesee, bestMosse);
+    return bestScore;
 }
 
 void InserisciMax(int val, int row, int col){
