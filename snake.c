@@ -1,4 +1,3 @@
-
 #ifndef MAIN
     #include "main.c"
 #endif
@@ -14,11 +13,13 @@ typedef struct{
 } Snake;
 
 Snake snakes[5000];
-
+char mossePossibili[] = "RLUD";
+char mossaOpposta[] = "LRDU";
+int FORESEE_DEPTH=1;
+int NUM_MOSSE_CONSECUTIVE = 1;
 
 void ApplicaMossa(Point* p, char mossa);
 void CorreggiIndex(Point* p, int col, int row);
-
 
 void SetStartSnake(Snake* snake, int col, int row){
     snake->start.col = col;
@@ -36,42 +37,6 @@ void InitSnake(Snake* snake, int index, int maxLength){
 }
 void SetStartSnakePunto(Snake* snake, Point p){
     SetStartSnake(snake, p.col, p.row);
-}
-
-void CorreggiIndex(Point* returnPoint, int col, int row){
-    if(col>=Col){
-        col -= Col;
-    }
-    if(row>=Row){
-        row -= Row;
-    }
-    if(col<0){
-        col += Col;
-    }
-    if(row<0){
-        row += Row;
-    }
-    returnPoint->col = col;
-    returnPoint->row = row;
-}
-void FixIndex(Point* p){
-    CorreggiIndex(p, p->col, p->row);
-}
-
-int ValoreCella(int row, int col){ 
-    Point p;
-    CorreggiIndex(&p, col, row);
-    return matrice[p.row][p.col].value;
-}
-int ValoreCellaMossa(Point p, char mossa){
-    ApplicaMossa(&p, mossa);
-    return ValoreCella(p.row, p.col);
-}
-int ValoreCellaImmediato(int row, int col, bool t){
-    if(t)
-        return -10002;
-    else
-        return matrice[row][col].value;
 }
 
 void ApplicaMossa(Point* p, char mossa){
@@ -93,10 +58,14 @@ void ApplicaMossa(Point* p, char mossa){
         }     
     FixIndex(p);
 }
-bool isValidMove(Point p, char mossa){
+int ValoreCellaMossa(Point p, char mossa){
     ApplicaMossa(&p, mossa);
-    return !matrice[p.row][p.col].isOccupied;
+    return ValoreCella(p.row, p.col);
 }
+// bool isValidMove(Point p, char mossa){               Obsoleto, sostituito da ForeseePath
+//     ApplicaMossa(&p, mossa);
+//     return !matrice[p.row][p.col].isOccupied;
+// }
 void Move(Snake* snake, char mossa){
     int i = snake->numMosse;
     if(i < snake->maxLength){
@@ -111,41 +80,56 @@ void Move(Snake* snake, char mossa){
         fprintf(stderr,"Superato limite lunghezza di snake %d", snake->index);
     }
 }
+bool isDeadEnd(Point p){
+    char mossePossibili[] = "RLUD";
+    for(int i=0; i<4; i++){
+        char m = mossePossibili[i]; 
+        Point previewMossa = p;
+        ApplicaMossa(&previewMossa, m);  
+        if(matrice[previewMossa.row][previewMossa.col].isOccupied == false)
+            return false;
+    }
+    // if all neighbours are occupied, then:
+    return true;
+}
+bool ForeseePath(Point p, char mossa, int depth){
+    ApplicaMossa(&p, mossa); 
+    if(matrice[p.row][p.col].isOccupied) return false;                // caso base 1
+    if(depth==0) return !matrice[p.row][p.col].isOccupied;            // caso base 2
 
-char BestMove(Point p){
+    bool result=false;
+    for(int i=0; i<4 && !result; i++){
+        Point previewMossa = p;
+        char m = mossePossibili[i]; 
+        if(mossaOpposta[i] != mossa) {
+            result = result || ForeseePath(previewMossa, m, depth-1);
+        }
+    }
+    return result;
+}
+char BestMove(Snake* snake){
+    Point p = snake->curr;
     int bestVal=WORMHOLE_VALUE - 100;
     char move=' ';
-    int val = ValoreCellaMossa(p, 'R');
-    if(isValidMove(p, 'R')){
-        bestVal=val;
-        move='R';
-    }
-    val = ValoreCellaMossa(p, 'L');
-    if(val>bestVal && isValidMove(p, 'L')){
-        bestVal=val;
-        move='L';
-    }
-    val = ValoreCellaMossa(p, 'U');
-    if(val>bestVal && isValidMove(p, 'U')){
-        bestVal=val;
-        move='U';
-    }
-    val = ValoreCellaMossa(p, 'D');
-    if(val>bestVal && isValidMove(p, 'D')){
-        bestVal=val;
-        move='D';
+    for(int i=0; i<4; i++){
+        char m = mossePossibili[i]; 
+        int val = ValoreCellaMossa(p, m);
+        bool existPath = ForeseePath(p, m, FORESEE_DEPTH);
+        if(val>bestVal && existPath){
+            bestVal=val;
+            move=m;
+        }
     }
 
     if(bestVal == WORMHOLE_VALUE){
-        return 'W';
+        return 'W';         // W = "wormhole"
     }
     if(move == ' '){
-        return 'I';
+        return 'I';        // I = "intrappolato"
     }
 
     return move;
 }
-
 void DebugPrintMossaErrata(Snake* snake, char mossaErrata){
     fprintf(stderr, "Snake %d nel punto %d %d ha avuto errore di tipo: ", snake->index, snake->curr.row, snake->curr.col);
     if(mossaErrata == 'I'){
